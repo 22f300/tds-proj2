@@ -30,16 +30,16 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
         else:
             return {"answer": "The 'answer' column was not found in the CSV file."}
     else:
-        # If no file is uploaded, process the question with OpenAI GPT-4
+        # Use OpenAI API with the new format
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-4",
+                model="gpt-4",  # Change to "gpt-3.5-turbo" if you're using GPT-3.5
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant who answers academic questions."},
                     {"role": "user", "content": question}
                 ]
             )
-            answer_text = response['choices'][0]['message']['content'].strip()
+            answer_text = response.choices[0].message["content"].strip()
             return {"answer": answer_text}
         except Exception as e:
             return {"answer": f"Error: {str(e)}"}
