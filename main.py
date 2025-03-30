@@ -1,12 +1,19 @@
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from dotenv import load_dotenv
 import pandas as pd
 import zipfile
 import io
 import openai
-import requests  # Make sure to import requests
+import requests
 import os
+
+# ✅ Load environment variables from .env file
+load_dotenv()
+
+print("AI_PROXY_TOKEN:", os.getenv("AI_PROXY_TOKEN"))
+print("AI_PROXY_URL:", os.getenv("AI_PROXY_URL"))
 
 app = FastAPI()
 
@@ -15,9 +22,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Load AI Proxy Token and Base URL from environment variables
 AI_PROXY_TOKEN = os.getenv("AI_PROXY_TOKEN")
-BASE_URL = os.getenv("AI_PROXY_URL")
+AI_PROXY_URL = os.getenv("AI_PROXY_URL")
 
-if not AI_PROXY_TOKEN or not BASE_URL:
+if not AI_PROXY_TOKEN or not AI_PROXY_URL:
     raise ValueError("❌ AI Proxy Token or Base URL not found. Make sure they're set in your environment variables.")
 
 print(f"✅ AI Proxy Token Loaded Successfully")
