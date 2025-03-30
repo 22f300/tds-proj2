@@ -62,33 +62,35 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
         else:
             return {"answer": "The 'answer' column was not found in the CSV file."}
     else:
-        # If no file is uploaded, process the question with AI Proxy
+        return {"answer": "The 'answer' column was not found in the CSV file."}
+        except Exception as e:
+            return {"answer": f"Error processing file: {str(e)}"}
+    else:
         try:
             headers = {
-                "Authorization": f"Bearer {AI_PROXY_TOKEN}",
-                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
             }
-            data = {
-                "model": "gpt-4",
+            json_data = {
+                "model": "gpt-3.5-turbo",
                 "messages": [
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": "You are a helpful assistant who answers academic questions."},
                     {"role": "user", "content": question}
-                ]
+                ],
+                "max_tokens": 150,
+                "temperature": 0.7
             }
 
-    try:
-        response = requests.post(
-            f"{AI_PROXY_URL}chat/completions",
-            headers=headers,
-            json=data
-        )
+            response = requests.post(
+                f"{base_url}chat/completions",
+                headers=headers,
+                json=json_data
+            )
 
-        result = response.json()
-        if "choices" in result:
-            answer_text = result['choices'][0]['message']['content'].strip()
-            return {"answer": answer_text}
-        else:
-            return {"error": result}
-
-    except Exception as e:
-        return {"error": str(e)}
+            if response.status_code == 200:
+                answer_text = response.json()['choices'][0]['message']['content'].strip()
+                return {"answer": answer_text}
+            else:
+                return {"answer": f"Error: {response.status_code} - {response.text}"}
+        except Exception as e:
+            return {"answer": f"Error: {str(e)}"}
