@@ -49,48 +49,43 @@ async def favicon_png():
 @app.post("/api/")
 async def process_question(question: str = Form(...), file: UploadFile = File(None)):
     if file:
-        content = await file.read()
-        with zipfile.ZipFile(io.BytesIO(content)) as z:
-            z.extractall("./extracted")
-
-        csv_file = [f for f in z.namelist() if f.endswith('.csv')][0]
-        df = pd.read_csv(f"./extracted/{csv_file}")
-
-        if 'answer' in df.columns:
-            answer_value = df['answer'].iloc[0]
-            return {"answer": str(answer_value)}
-        else:
-            return {"answer": "The 'answer' column was not found in the CSV file."}
-    else:
-        return {"answer": "The 'answer' column was not found in the CSV file."}
-        except Exception as e:
-            return {"answer": f"Error processing file: {str(e)}"}
-    else:
         try:
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            json_data = {
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {"role": "system", "content": "You are a helpful assistant who answers academic questions."},
-                    {"role": "user", "content": question}
-                ],
-                "max_tokens": 150,
-                "temperature": 0.7
-            }
+            content = await file.read()
+            with zipfile.ZipFile(io.BytesIO(content)) as z:
+                z.extractall("./extracted")
 
+            csv_file = [f for f in z.namelist() if f.endswith('.csv')][0]
+            df = pd.read_csv(f"./extracted/{csv_file}")
+
+            if 'answer' in df.columns:
+                answer_value = df['answer'].iloc[0]
+                return {"answer": str(answer_value)}
+            else:
+                return {"answer": "The 'answer' column was not found in the CSV file."}
+        except Exception as e:
+            return {"answer": f"Error: {str(e)}"}
+    else:
+        # If no file is uploaded, process the question with OpenAI GPT-4 via AI Proxy
+        try:
             response = requests.post(
-                f"{base_url}chat/completions",
-                headers=headers,
-                json=json_data
+                AI_PROXY_URL,
+                headers={"Authorization": f"Bearer {AI_PROXY_TOKEN}"},
+                json={
+                    "model": "gpt-4",
+                    "messages": [
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": question}
+                    ]
+                }
             )
+            response.raise_for_status()  # Check if the request was successful
+            response_json = response.json()
 
-            if response.status_code == 200:
-                answer_text = response.json()['choices'][0]['message']['content'].strip()
+            if 'choices' in response_json and len(response_json['choices']) > 0:
+                answer_text = response_json['choices'][0]['message']['content'].strip()
                 return {"answer": answer_text}
             else:
-                return {"answer": f"Error: {response.status_code} - {response.text}"}
+                return {"answer": "Error: 'choices' not found in the response JSON."}
+
         except Exception as e:
             return {"answer": f"Error: {str(e)}"}
