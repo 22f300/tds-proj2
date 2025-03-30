@@ -5,57 +5,69 @@ import pandas as pd
 import zipfile
 import io
 import openai
+import requests  # Make sure to import requests
 import os
-from dotenv import load_dotenv
-import requests
-
-# Load environment variables from .env file
-load_dotenv()
 
 app = FastAPI()
 
 # Mount the static directory for serving favicon
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Retrieve AI Proxy Token and Base URL from environment variables
-api_token = os.getenv("AI_PROXY_TOKEN")
-base_url = os.getenv("AI_PROXY_URL")
+# Load AI Proxy Token and Base URL from environment variables
+AI_PROXY_TOKEN = os.getenv("AI_PROXY_TOKEN")
+BASE_URL = os.getenv("AI_PROXY_URL")
 
-if not api_token or not base_url:
+if not AI_PROXY_TOKEN or not BASE_URL:
     raise ValueError("❌ AI Proxy Token or Base URL not found. Make sure they're set in your environment variables.")
-else:
-    print(f"✅ AI Proxy Token and Base URL Loaded Successfully")
+
+print(f"✅ AI Proxy Token Loaded Successfully")
 
 @app.get("/")
 async def root():
     return {"message": "API is working!"}
 
+# Serve favicon.ico
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico():
+    return FileResponse("static/favicon.ico")
+
+# Serve favicon.png
+@app.get("/favicon.png", include_in_schema=False)
+async def favicon_png():
+    return FileResponse("static/favicon.png")
+
 @app.post("/api/")
-async def process_question(question: str = Form(...)):
-    headers = {
-        "Authorization": f"Bearer {api_token}",
-        "Content-Type": "application/json"
-    }
+async def process_question(question: str = Form(...), file: UploadFile = File(None)):
+    if file:
+        content = await file.read()
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            z.extractall("./extracted")
 
-    data = {
-        "model": "gpt-4",
-        "messages": [{"role": "user", "content": question}]
-    }
+        csv_file = [f for f in z.namelist() if f.endswith('.csv')][0]
+        df = pd.read_csv(f"./extracted/{csv_file}")
 
-    try:
-        response = requests.post(
-            f"{base_url}/chat/completions",
-            headers=headers,
-            json=data
-        )
-
-        response_json = response.json()
-
-        if response.status_code == 200:
-            answer_text = response_json['choices'][0]['message']['content'].strip()
-            return {"answer": answer_text}
+        if 'answer' in df.columns:
+            answer_value = df['answer'].iloc[0]
+            return {"answer": str(answer_value)}
         else:
-            return {"answer": f"Error: {response_json}"}
-
-    except Exception as e:
-        return {"answer": f"Error: {str(e)}"}
+            return {"answer": "The 'answer' column was not found in the CSV file."}
+    else:
+        # If no file is uploaded, process the question with AI Proxy
+        try:
+            headers = {
+                "Authorization": f"Bearer {AI_PROXY_TOKEN}",
+                "Content-Type": "application/json",
+            }
+            data = {
+                "model": "gpt-4",
+                "messages": [
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": question}
+                ]
+            }
+            response = requests.post(f"{AI_PROXY_URL}/chat/completions", headers=headers, json=data)
+            response_data = response.json()
+            answer_text = response_data['choices'][0]['message']['content'].strip()
+            return {"answer": answer_text}
+        except Exception as e:
+            return {"answer": f"Error: {str(e)}"}
