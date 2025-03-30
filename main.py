@@ -17,9 +17,12 @@ print("AI_PROXY_URL:", os.getenv("AI_PROXY_URL"))
 
 app = FastAPI()
 
-# Mount the static directory for serving favicon
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Absolute path to the static folder
+static_folder = os.path.join(os.path.dirname(__file__), "static")
+if not os.path.exists(static_folder):
+    raise RuntimeError(f"Directory '{static_folder}' does not exist. Make sure it's in the correct location.")
 
+app.mount("/static", StaticFiles(directory=static_folder), name="static")
 # Load AI Proxy Token and Base URL from environment variables
 AI_PROXY_TOKEN = os.getenv("AI_PROXY_TOKEN")
 AI_PROXY_URL = os.getenv("AI_PROXY_URL")
