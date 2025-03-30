@@ -4,3 +4,5 @@ openai
 uvicorn
 python-multipart
 starlette
+requests
+python-dotenv
