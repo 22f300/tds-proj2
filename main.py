@@ -75,9 +75,27 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
                     {"role": "user", "content": question}
                 ]
             }
-            response = requests.post(f"{AI_PROXY_URL}/chat/completions", headers=headers, json=data)
-            response_data = response.json()
-            answer_text = response_data['choices'][0]['message']['content'].strip()
+
+    try:
+        response = requests.post(f"{AI_PROXY_URL}chat/completions", headers=headers, json=data)
+
+        if response.status_code != 200:
+            # If the request failed, return the error response directly
+            return {"error": f"API Error: {response.status_code} - {response.text}"}
+
+        response_json = response.json()
+
+        # Debugging Log: Output the response to inspect it
+        print("DEBUG: Full response from API Proxy:")
+        print(response_json)
+
+        # Check if the response contains the 'choices' key
+        if 'choices' in response_json:
+            answer_text = response_json['choices'][0]['message']['content'].strip()
             return {"answer": answer_text}
-        except Exception as e:
-            return {"answer": f"Error: {str(e)}"}
+        else:
+            # If not, return the full response for debugging
+            return {"error": f"Invalid response format: {response_json}"}
+
+    except Exception as e:
+        return {"error": f"Error: {str(e)}"}
