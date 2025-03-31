@@ -87,7 +87,7 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Respond with only the direct answer, without any explanations or additional context."},
+                    {"role": "system", "content": "Respond with ONLY the direct numeric or factual answer without explanations."},
                     {"role": "user", "content": prompt}
                 ]
             }
@@ -101,3 +101,4 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
 
     except Exception:
         return {"answer": "AI Proxy error."}
+
