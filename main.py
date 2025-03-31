@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 import pandas as pd
 import zipfile
 import io
-import openai
 import requests
 import os
 
@@ -23,6 +22,7 @@ if not os.path.exists(static_folder):
     raise RuntimeError(f"Directory '{static_folder}' does not exist. Make sure it's in the correct location.")
 
 app.mount("/static", StaticFiles(directory=static_folder), name="static")
+
 # Load AI Proxy Token and Base URL from environment variables
 AI_PROXY_TOKEN = os.getenv("AI_PROXY_TOKEN")
 AI_PROXY_URL = os.getenv("AI_PROXY_URL")
@@ -68,14 +68,18 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
         # If no file is uploaded, process the question with OpenAI GPT-4 via AI Proxy
         try:
             response = requests.post(
-                AI_PROXY_URL,
-                headers={"Authorization": f"Bearer {AI_PROXY_TOKEN}"},
+                f"{AI_PROXY_URL}chat/completions",  # Make sure your URL ends with /chat/completions
+                headers={
+                    "Authorization": f"Bearer {AI_PROXY_TOKEN}",
+                    "Content-Type": "application/json"
+                },
                 json={
-                    "model": "gpt-4",
+                    "model": "gpt-4o-mini",
                     "messages": [
                         {"role": "system", "content": "You are a helpful assistant."},
                         {"role": "user", "content": question}
-                    ]
+                    ],
+                    "temperature": 0.7
                 }
             )
             response.raise_for_status()  # Check if the request was successful
