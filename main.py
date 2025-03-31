@@ -49,55 +49,59 @@ async def favicon_png():
 @app.post("/api/")
 async def process_question(question: str = Form(...), file: UploadFile = File(None)):
     if file:
+        file_content = await file.read()
+        filename = file.filename
         try:
-            # Read the file contents
-            content = await file.read()
-            filename = file.filename
-            file_extension = filename.split(".")[-1].lower()
-
-            # Check the type of file uploaded and process accordingly
-            if file_extension == "zip":
-                with zipfile.ZipFile(io.BytesIO(content)) as z:
-                    z.extractall("./extracted")
+            if filename.endswith('.csv'):
+                df = pd.read_csv(io.BytesIO(file_content))
+            elif filename.endswith('.txt'):
+                text_content = file_content.decode('utf-8')
+                return {"answer": text_content}
+            elif filename.endswith('.json'):
+                import json
+                json_content = json.loads(file_content)
+                return {"answer": json_content}
+            elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+                df = pd.read_excel(io.BytesIO(file_content))
+            elif filename.endswith('.zip'):
+                import zipfile
+                with zipfile.ZipFile(io.BytesIO(file_content)) as z:
                     extracted_files = z.namelist()
-
-                    # Process CSV if present in the zip file
-                    csv_files = [f for f in extracted_files if f.endswith('.csv')]
-                    if csv_files:
-                        df = pd.read_csv(f"./extracted/{csv_files[0]}")
-                        if 'answer' in df.columns:
-                            answer_value = df['answer'].iloc[0]
-                            return {"answer": str(answer_value)}
+                    # Automatically read the first file found in the ZIP archive
+                    extracted_file = extracted_files[0] 
+                    with z.open(extracted_file) as f:
+                        if extracted_file.endswith('.csv'):
+                            df = pd.read_csv(f)
+                        elif extracted_file.endswith('.txt'):
+                            text_content = f.read().decode('utf-8')
+                            return {"answer": text_content}
+                        elif extracted_file.endswith('.json'):
+                            json_content = json.load(f)
+                            return {"answer": json_content}
+                        elif extracted_file.endswith('.xlsx') or extracted_file.endswith('.xls'):
+                            df = pd.read_excel(f)
                         else:
-                            return {"answer": "The 'answer' column was not found in the CSV file."}
-                    else:
-                        return {"answer": f"No CSV files found in the uploaded ZIP. Extracted files: {extracted_files}"}
-
-            elif file_extension in ["txt", "json", "csv", "html", "xml", "md"]:
-                # Process text-based files
-                text_content = content.decode('utf-8', errors='ignore')
-                return {"answer": f"Received {file_extension} file with content: {text_content[:200]}..."}
-
-            elif file_extension in ["jpg", "jpeg", "png", "bmp", "gif"]:
-                # Process image files
-                return {"answer": f"Received an image file ({filename}). Successfully uploaded!"}
-
-            elif file_extension in ["pdf"]:
-                return {"answer": f"Received a PDF file ({filename}). Processing PDFs is not supported yet."}
-
+                            return {"answer": f"Unsupported file type in ZIP: {extracted_file}"}
             else:
-                return {"answer": f"File type '{file_extension}' is not supported yet. Successfully uploaded!"}
+                return {"answer": "Unsupported file type. Please upload CSV, TXT, JSON, Excel, or ZIP files."}
 
+            if isinstance(df, pd.DataFrame):
+                if 'answer' in df.columns:
+                    answer_value = df['answer'].iloc[0]
+                    return {"answer": str(answer_value)}
+                else:
+                    return {"answer": "The 'answer' column was not found in the file."}
         except Exception as e:
-            return {"answer": f"Error: {str(e)}"}
+            return {"answer": f"Error reading file: {str(e)}"}
+
     else:
-        # Handle the question processing with OpenAI GPT-4 via AI Proxy
+        # Process the question with AI Proxy
         try:
             response = requests.post(
-                AI_PROXY_URL,
-                headers = {
-                      "Authorization": f"Bearer {AI_PROXY_TOKEN}",
-                      "Content-Type": "application/json"
+                f"{AI_PROXY_URL}chat/completions",
+                headers={
+                    "Authorization": f"Bearer {AI_PROXY_TOKEN}",
+                    "Content-Type": "application/json"
                 },
                 json={
                     "model": "gpt-4o-mini",
@@ -109,12 +113,10 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
             )
             response.raise_for_status()
             response_json = response.json()
-
             if 'choices' in response_json and len(response_json['choices']) > 0:
                 answer_text = response_json['choices'][0]['message']['content'].strip()
                 return {"answer": answer_text}
             else:
-                return {"answer": "Error: 'choices' not found in the response JSON."}
-
+                return {"answer": "Error: No valid response from the AI Proxy."}
         except Exception as e:
             return {"answer": f"Error: {str(e)}"}
