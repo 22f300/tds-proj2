@@ -9,19 +9,16 @@ import io
 import requests
 import os
 
-# ✅ Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
 
-# Absolute path to the static folder
 static_folder = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(static_folder):
     raise RuntimeError(f"Directory '{static_folder}' does not exist.")
 
 app.mount("/static", StaticFiles(directory=static_folder), name="static")
 
-# Load AI Proxy Token and Base URL from environment variables
 AI_PROXY_TOKEN = os.getenv("AI_PROXY_TOKEN")
 AI_PROXY_URL = os.getenv("AI_PROXY_URL")
 
@@ -69,20 +66,17 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
                         with z.open(first_file) as f:
                             inner_file_content = f.read()
                             data_content = extract_file_content(first_file, inner_file_content)
-                    else:
-                        return {"answer": "ZIP file is empty."}
             else:
                 data_content = extract_file_content(filename, file_content)
 
-        except Exception as e:
-            return {"answer": f"Error reading file: {str(e)}"}
+        except Exception:
+            return {"answer": "Error reading file."}
 
     prompt = question
 
     if data_content:
         prompt += f"\n\nFile content:\n{json.dumps(data_content)}"
 
-    # Process the question with AI Proxy
     try:
         response = requests.post(
             f"{AI_PROXY_URL}chat/completions",
@@ -93,7 +87,7 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": "Answer concisely."},
                     {"role": "user", "content": prompt}
                 ]
             }
@@ -101,10 +95,9 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
         response.raise_for_status()
         response_json = response.json()
         if 'choices' in response_json and response_json['choices']:
-            answer_text = response_json['choices'][0]['message']['content'].strip()
-            return {"answer": answer_text}
+            return {"answer": response_json['choices'][0]['message']['content'].strip()}
         else:
-            return {"answer": "No valid response from AI Proxy."}
+            return {"answer": "No valid response."}
 
-    except Exception as e:
-        return {"answer": f"Error: {str(e)}"}
+    except Exception:
+        return {"answer": "AI Proxy error."}
