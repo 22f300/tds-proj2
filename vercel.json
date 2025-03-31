@@ -19,5 +19,11 @@
   "env": {
     "OPENAI_API_KEY": "eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6IjIyZjMwMDI1NTZAZHMuc3R1ZHkuaWl0bS5hYy5pbiJ9.v3boXmsgpo7TLq7CD7St_DU6he5uaYz9xpYalP_dYts",
     "OPENAI_API_BASE": "https://aiproxy.sanand.workers.dev/openai/v1/"
+  },
+  "functions": {
+    "main.py": {
+      "maxDuration": 60
+    }
   }
 }
+
