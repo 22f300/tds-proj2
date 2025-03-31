@@ -88,9 +88,10 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
                 "model": "gpt-4o-mini",
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": prompt[:2000]}
                 ]
-            }
+            },
+            timeout=8
         )
         response.raise_for_status()
         response_json = response.json()
