@@ -50,39 +50,64 @@ async def favicon_png():
 async def process_question(question: str = Form(...), file: UploadFile = File(None)):
     if file:
         try:
+            # Read the file contents
             content = await file.read()
-            with zipfile.ZipFile(io.BytesIO(content)) as z:
-                z.extractall("./extracted")
+            filename = file.filename
+            file_extension = filename.split(".")[-1].lower()
 
-            csv_file = [f for f in z.namelist() if f.endswith('.csv')][0]
-            df = pd.read_csv(f"./extracted/{csv_file}")
+            # Check the type of file uploaded and process accordingly
+            if file_extension == "zip":
+                with zipfile.ZipFile(io.BytesIO(content)) as z:
+                    z.extractall("./extracted")
+                    extracted_files = z.namelist()
 
-            if 'answer' in df.columns:
-                answer_value = df['answer'].iloc[0]
-                return {"answer": str(answer_value)}
+                    # Process CSV if present in the zip file
+                    csv_files = [f for f in extracted_files if f.endswith('.csv')]
+                    if csv_files:
+                        df = pd.read_csv(f"./extracted/{csv_files[0]}")
+                        if 'answer' in df.columns:
+                            answer_value = df['answer'].iloc[0]
+                            return {"answer": str(answer_value)}
+                        else:
+                            return {"answer": "The 'answer' column was not found in the CSV file."}
+                    else:
+                        return {"answer": f"No CSV files found in the uploaded ZIP. Extracted files: {extracted_files}"}
+
+            elif file_extension in ["txt", "json", "csv", "html", "xml", "md"]:
+                # Process text-based files
+                text_content = content.decode('utf-8', errors='ignore')
+                return {"answer": f"Received {file_extension} file with content: {text_content[:200]}..."}
+
+            elif file_extension in ["jpg", "jpeg", "png", "bmp", "gif"]:
+                # Process image files
+                return {"answer": f"Received an image file ({filename}). Successfully uploaded!"}
+
+            elif file_extension in ["pdf"]:
+                return {"answer": f"Received a PDF file ({filename}). Processing PDFs is not supported yet."}
+
             else:
-                return {"answer": "The 'answer' column was not found in the CSV file."}
+                return {"answer": f"File type '{file_extension}' is not supported yet. Successfully uploaded!"}
+
         except Exception as e:
             return {"answer": f"Error: {str(e)}"}
     else:
-        # If no file is uploaded, process the question with OpenAI GPT-4 via AI Proxy
+        # Handle the question processing with OpenAI GPT-4 via AI Proxy
         try:
             response = requests.post(
-                f"{AI_PROXY_URL}chat/completions",  # Make sure your URL ends with /chat/completions
-                headers={
-                    "Authorization": f"Bearer {AI_PROXY_TOKEN}",
-                    "Content-Type": "application/json"
+                AI_PROXY_URL,
+                headers = {
+                      "Authorization": f"Bearer {AI_PROXY_TOKEN}",
+                      "Content-Type": "application/json"
                 },
                 json={
                     "model": "gpt-4o-mini",
                     "messages": [
                         {"role": "system", "content": "You are a helpful assistant."},
                         {"role": "user", "content": question}
-                    ],
-                    "temperature": 0.7
+                    ]
                 }
             )
-            response.raise_for_status()  # Check if the request was successful
+            response.raise_for_status()
             response_json = response.json()
 
             if 'choices' in response_json and len(response_json['choices']) > 0:
