@@ -87,7 +87,7 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Provide only direct answers without explanations."},
+                    {"role": "system", "content": "Respond with only the direct answer, without any explanations or additional context."},
                     {"role": "user", "content": prompt}
                 ]
             }
