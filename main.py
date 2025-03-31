@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 import pandas as pd
 import json
@@ -15,7 +15,7 @@ app = FastAPI()
 
 static_folder = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(static_folder):
-    raise RuntimeError(f"Directory '{static_folder}' does not exist.")
+    os.makedirs(static_folder)
 
 app.mount("/static", StaticFiles(directory=static_folder), name="static")
 
@@ -70,7 +70,7 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
                 data_content = extract_file_content(filename, file_content)
 
         except Exception:
-            return {"answer": "Error reading file."}
+            return JSONResponse(content={"answer": "Error reading file."}, status_code=400)
 
     prompt = question
 
@@ -95,13 +95,14 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
         )
         response.raise_for_status()
         response_json = response.json()
+        
         if 'choices' in response_json and response_json['choices']:
             final_answer = response_json['choices'][0]['message']['content'].strip()
-            return {"answer": final_answer}
+            return JSONResponse(content={"answer": final_answer})
         else:
-            return {"answer": "No valid response."}
+            return JSONResponse(content={"answer": "No valid response."}, status_code=400)
 
     except requests.Timeout:
-        return {"answer": "Request timed out."}
-    except Exception:
-        return {"answer": "AI Proxy error."}
+        return JSONResponse(content={"answer": "Request timed out."}, status_code=504)
+    except Exception as e:
+        return JSONResponse(content={"answer": f"AI Proxy error: {str(e)}"}, status_code=500)
