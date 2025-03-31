@@ -87,8 +87,8 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "ONLY provide the final numeric or factual answer without explanations."},
-                    {"role": "user", "content": prompt[:2000]}
+                    {"role": "system", "content": "ONLY provide the final numeric or factual answer in plain text without explanations."},
+                    {"role": "user", "content": prompt}
                 ]
             },
             timeout=8
@@ -96,10 +96,12 @@ async def process_question(question: str = Form(...), file: UploadFile = File(No
         response.raise_for_status()
         response_json = response.json()
         if 'choices' in response_json and response_json['choices']:
-            return {"answer": response_json['choices'][0]['message']['content'].strip()}
+            final_answer = response_json['choices'][0]['message']['content'].strip()
+            return {"answer": final_answer}
         else:
             return {"answer": "No valid response."}
 
+    except requests.Timeout:
+        return {"answer": "Request timed out."}
     except Exception:
         return {"answer": "AI Proxy error."}
-
