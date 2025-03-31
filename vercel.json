@@ -23,8 +23,8 @@
   "functions": {
     "main.py": {
       "runtime": "python3.9",
-      "maxDuration": 60,
-      "memory": 512
+      "maxDuration": 120,
+      "memory": 1024
     }
   }
 }
